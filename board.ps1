@@ -2,137 +2,135 @@ class Board {
 
     [int] $height
     [int] $wide
-    [Square[]] $squares
-
+    [Tile[]]$tiles
     Board([int] $height, [int] $wide) {
         $this.height = $height
         $this.wide = $wide
-        $this.loadBoard([SquareFactory]::new())
-        $this.addLabel()
+        $this.createBoardTiles([TileFactory]::new())
     }
 
-    loadBoard([AbstractFactory] $factory) {
-        $counter = 0
-        foreach ($xSquare in (1..$this.wide)) {
-            foreach ($ySquare in (1..$this.height)) {
-                $this.squares += $factory.createSquare($xSquare, $ySquare)
+    [string] getRandomTerrain() {
+        return [Terrain](Get-Random -Minimum 0 -Maximum $([Enum]::GetValues([Terrain]).Count))
+    }
 
-                # write-host $counter
-                $counter ++
+    [string] getRandomUnit() {
+        return [Unit](Get-Random -Minimum 0 -Maximum $([Enum]::GetValues([Unit]).Count))
+    }
+
+    [string] getRandomPlayer() {
+        return [Player](Get-Random -Minimum 0 -Maximum $([Enum]::GetValues([Player]).Count))
+    }
+
+    initializeTile([Tile] $tile) {
+        $tile.setTerrain($this.getRandomTerrain())
+        $tile.setPlayer($this.getRandomPlayer())
+        $tile.addUnit($this.getRandomUnit())
+    }
+
+    createBoardTiles([AbstractFactory] $factory) {
+        foreach ($xTile in (1..$this.wide)) {
+            foreach ($yTile in (1..$this.height)) {
+                $new_tile = $factory.createTile($xTile, $yTile)
+                $this.initializeTile($new_tile)
+                $this.tiles += $new_tile
             }
         }
     }
 
-    addLabel() {
-        $counter = 0
-        $charIni = 64
-        foreach ($singleSquare in $this.squares) {
-            $label = $([char]$($singleSquare.x + $charIni)) + $([char]$($singleSquare.y + $charIni))
-            $this.squares[$counter].label = $label
-            write-host $this.squares[$counter].label "->" $this.squares[$counter].x ", " $this.squares[$counter].y
-            $counter ++
-        }
-    }
-
-    findSquare([int] $x, [int] $y) {
-        foreach ($singleSquare in $this.squares) {
-            if (($singleSquare.x -eq $x) -and ($singleSquare.y -eq $y)) {
-                write-host $singleSquare.label
+    [Tile] findTile([int] $x, [int] $y) {
+        foreach ($singleTile in $this.tiles) {
+            if (($singleTile.x -eq $x) -and ($singleTile.y -eq $y)) {
+                return $singleTile
             }
         }
+        return $null
+    }
+
+    [void] addUnitToTile([Tile] $tile, [Unit] $Unit) {
+        $tile.addUnit($unit)
+    }
+
+    [void] removeUnitFromTile([Tile] $tile, [Unit] $Unit) {
+        $tile.removeUnit($unit)
     }
 
 }
 
-class Square {
+[Flags()] enum Terrain {
+    Dry
+    Water
+    Sand
+    Mood
+}
+
+[Flags()] enum Unit {
+    None
+    Soldier
+    Tank
+}
+
+[Flags()] enum Player {
+    Player1
+    Player2
+}
+
+class Tile {
+
     [int] $x
     [int] $y
-    [string] $label
-    [string] $description
+    [string] $terrain
+    [string] $player
+    [System.Collections.Generic.List[object]]$_units = @()
 
-
-
-    Square([int] $x, [int] $y) {
+    Tile([int] $x, [int] $y) {
         $this.x = $x
         $this.y = $y
     }
 
-    setLable([string] $label) {
-        $this.label = $label
+    [string] getTerrain() { return $this.terrain }
+    setTerrain([string] $terrain) { $this.terrain = $terrain }
+
+    [string] getPlayer() { return $this.player }
+    setPlayer([string] $player) { $this.player = $player }
+
+    addUnit([object] $unit) {
+        $this._units.Add($unit)
     }
 
-    [string] getDescription() {
-        return $this.description
+    removeUnit([object] $unit) {
+        $this._units.Remove($unit)
     }
+
+    getUnits() {
+        foreach ($unit in $this._units) {
+            write-host $unit.GetType().Name
+        }
+    }
+
+    notify() {}
 }
 
-class DryLand: Square {
-    DryLand() {
-        $this.description = "DryLand"
-    }
-}
-class Water: Square {
-    Water() {
-        $this.description = "Water"
-    }
+class Game {
+
 }
 
 
-class SquareDecorator: Square {
-    [Square] $square
-    Unit([Square] $square) {
-        $this.square = $square
-    }
-    [string] getDescription() {
-        return $this.description
-    }
-}
 
-class Unit: SquareDecorator {
-
-    [string] getDescription() {
-        return $this.square.getDescription() + "Unit"
-    }
-
-}
-class Soldier:Unit {
-    [string] getDescription() {
-        return $this.square.getDescription() + "Soldier"
-    }
-}
-class Tank:Unit {
-    [string] getDescription() {
-        return $this.square.getDescription() + "Tank"
-    }
-}
-
+"wait"
 
 class AbstractFactory {
     createBoard() {}
-    createSquare() {}
-    createUnit() {}
-    createTerrain() {}
+    createTile() {}
 }
 class BoardFactory: AbstractFactory {
-    [Board] createBoard([int] $height, [int] $wide) {
-        return [Board]::new($height, $wide)
-    }
+    [Board] createBoard([int] $height, [int] $wide) { return [Board]::new($height, $wide) }
 }
-class SquareFactory: AbstractFactory {
-    [Square] createSquare([int] $x, [int] $y) {
-        return [Square]::new($x, $y)
-    }
-}
-class UnitFactory: AbstractFactory {
-    [Unit] createUnit([string] $type) {
-        return New-Object -TypeName $type
-    }
-}
-class TerrainFactory: AbstractFactory {
-    [Terrain] createUnit([string] $type) {
-        return New-Object -TypeName $type
-    }
+class TileFactory: AbstractFactory {
+    [Tile] createTile([int] $x, [int] $y) { return [Tile]::new($x, $y) }
 }
 
-$board = [Board]::new(8, 8)
-$board.findSquare(1, 2)
+$board = [Board]::new(10, 8)
+
+$tile = $board.findTile(3, 5)
+
+"wait"
